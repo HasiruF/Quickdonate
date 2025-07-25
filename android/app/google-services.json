@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "595195474645",
+    "project_id": "co3261---quickdonate",
+    "storage_bucket": "co3261---quickdonate.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:595195474645:android:f78b557d314a78258ba85c",
+        "android_client_info": {
+          "package_name": "com.example.quickdonateflutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZjOknXfYMqGScxrdaZwzNC4gpndtn0Ro"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:595195474645:android:e67fa3d5193d61958ba85c",
+        "android_client_info": {
+          "package_name": "com.quickdonate.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZjOknXfYMqGScxrdaZwzNC4gpndtn0Ro"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
