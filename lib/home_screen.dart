@@ -3,8 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
 import 'UserProfileScreen.dart';
-
-
+import 'add_campaign_screen.dart';
+import 'donate_screen.dart';
+import 'add_posts_screen.dart';
+import 'view_post_screen.dart';
 
 class HomePage extends StatefulWidget {
   final String userId;
@@ -75,12 +77,12 @@ class _HomePageState extends State<HomePage> {
         onTap: _onTabTapped, // Update selected tab
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.volunteer_activism), // Hand with heart
-            label: 'My Donations',
+            icon: Icon(Icons.volunteer_activism),
+            label: 'Donate',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.campaign), // Campaign/loudspeaker
-            label: 'Browse Campaigns',
+            icon: Icon(Icons.campaign), 
+            label: 'My Campaigns',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
@@ -171,50 +173,109 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-class UserDonationsPage extends StatelessWidget {
+class UserDonationsPage extends StatefulWidget {
   final String userId;
 
   UserDonationsPage({required this.userId});
 
   @override
+  _UserDonationsPageState createState() => _UserDonationsPageState();
+}
+
+class _UserDonationsPageState extends State<UserDonationsPage> {
+  String _searchText = '';
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("My Donations")),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('donations')
-            .where('userId', isEqualTo: userId)
-            .orderBy('timestamp', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
+      appBar: AppBar(title: Text("Browse Campaigns")),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: "Search campaigns...",
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchText = value.toLowerCase();
+                });
+              },
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('campaigns').snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
 
-          var donations = snapshot.data!.docs;
+                final campaigns = snapshot.data!.docs.where((doc) {
+                  final title = doc['title'].toString().toLowerCase();
+                  return title.contains(_searchText);
+                }).toList();
 
-          if (donations.isEmpty) {
-            return Center(child: Text("No donations yet."));
-          }
+                if (campaigns.isEmpty) {
+                  return Center(child: Text("No matching campaigns."));
+                }
 
-          return ListView.builder(
-            itemCount: donations.length,
-            itemBuilder: (context, index) {
-              var donation = donations[index];
-              return ListTile(
-                title: Text("₹${donation['amount']}"),
-                subtitle: Text("Campaign: ${donation['campaignId']}"),
-                trailing: Text(
-                  DateTime.fromMillisecondsSinceEpoch(donation['timestamp'].seconds * 1000)
-                      .toString()
-                      .split('.')[0],
-                ),
-              );
-            },
-          );
-        },
+                return ListView.builder(
+                  itemCount: campaigns.length,
+                  itemBuilder: (context, index) {
+                    final campaign = campaigns[index];
+                    final title = campaign['title'];
+                    final description = campaign['description'];
+                    final totalDonations = campaign['totalDonations'] ?? 0;
+                    final goalAmount = campaign['goalAmount'] ?? 10000;
+
+                    double progress = totalDonations / goalAmount;
+                    progress = progress.clamp(0.0, 1.0);
+
+                    return Card(
+                      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: ListTile(
+                        title: Text(title),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(description),
+                            SizedBox(height: 8),
+                            LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: Colors.grey[300],
+                              color: Colors.green,
+                            ),
+                            SizedBox(height: 4),
+                            Text("£$totalDonations raised of £$goalAmount"),
+                          ],
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CampaignDetailsPage(
+                                userId: widget.userId,
+                                campaignId: campaign.id,
+                                
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 }
+
 
 
 
@@ -226,33 +287,77 @@ class CampaignListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Available Campaigns")),
+      appBar: AppBar(
+        title: Text("My Campaigns"),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.add),
+            tooltip: "Add New Campaign",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AddCampaignPage(userId: userId),
+                ),
+              );
+            },
+          )
+        ],
+      ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('campaigns').snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('campaigns')
+            .where('userId', isEqualTo: userId)
+            .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
 
           var campaigns = snapshot.data!.docs;
 
           if (campaigns.isEmpty) {
-            return Center(child: Text("No campaigns available."));
+            return Center(child: Text("You have not created any campaigns."));
           }
 
           return ListView.builder(
             itemCount: campaigns.length,
             itemBuilder: (context, index) {
               var campaign = campaigns[index];
+              final totalDonations = campaign['totalDonations'] ?? 0;
+              final goalAmount = campaign['goalAmount'] ?? 10000;
+
+              double progress = totalDonations / goalAmount;
+              progress = progress.clamp(0.0, 1.0);
+
               return Card(
-                margin: EdgeInsets.all(10),
+                margin: EdgeInsets.all(16),
                 child: ListTile(
                   title: Text(campaign['title']),
-                  subtitle: Text(campaign['description']),
-                  trailing: ElevatedButton(
-                    child: Text("Donate"),
-                    onPressed: () {
-                      
-                    },
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(campaign['description']),
+                      SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: Colors.grey[300],
+                        color: Colors.green,
+                      ),
+                      SizedBox(height: 4),
+                      Text("£$totalDonations raised of £$goalAmount"),
+                    ],
                   ),
+                  trailing: Text("£$totalDonations"),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UserCampaignDetailsPage(
+                          campaignId: campaign.id,
+                          userId: userId,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               );
             },
