@@ -7,6 +7,9 @@ import 'add_campaign_screen.dart';
 import 'donate_screen.dart';
 import 'add_posts_screen.dart';
 import 'view_post_screen.dart';
+import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:path_provider/path_provider.dart';
 
 class HomePage extends StatefulWidget {
   final String userId;
@@ -50,9 +53,9 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.blue,
+        backgroundColor: Colors.blueGrey,
         title: Text(
-          'Welcome, $userName',
+          'QuickDonate',
         ),
         actions: [
           // Sign out button in the AppBar
@@ -104,15 +107,18 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   String username = "";
+  String lastname = "";
   String email = "";
-  String emergencyContact = "";
-  String profileImageUrl = "";
+  String phone = "";
+  File? _profileImage;
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
+    _loadLocalImage();
   }
 
   void _loadUserProfile() async {
@@ -120,51 +126,131 @@ class _ProfilePageState extends State<ProfilePage> {
     if (user != null) {
       DocumentSnapshot userDoc =
           await _firestore.collection('users').doc(user.uid).get();
+      if (userDoc.exists) {
+        setState(() {
+          username = userDoc["username"] ?? "";
+          lastname = userDoc["lastname"] ?? "";
+          email = userDoc["email"] ?? "";
+          phone = userDoc["phone"] ?? "Not added yet";
+        });
+      }
+    }
+  }
+
+  Future<void> _loadLocalImage() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File("${dir.path}/profile_pic.png");
+    if (await file.exists()) {
       setState(() {
-        username = userDoc["username"] ?? "";
-        email = userDoc["email"] ?? "";
-        emergencyContact = userDoc["emergency_contact"] ?? "";
-        profileImageUrl = userDoc["profile_image"] ?? "";
+        _profileImage = file;
       });
     }
+  }
+
+  Widget _buildProfileRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        children: [
+          Text(
+            "$label: ",
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Profile")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      appBar: AppBar(
+        title: const Text("Profile"),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-              child: CircleAvatar(
-                radius: 50,
-                backgroundImage: profileImageUrl.isNotEmpty
-                    ? NetworkImage(profileImageUrl)
-                    : null,
-                child: profileImageUrl.isEmpty
-                    ? Icon(Icons.person, size: 50)
-                    : null,
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  CircleAvatar(
+                    radius: 60,
+                    backgroundImage:
+                        _profileImage != null ? FileImage(_profileImage!) : null,
+                    child: _profileImage == null
+                        ? const Icon(Icons.person, size: 60)
+                        : null,
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => UserProfileScreen()),
+                        ).then((_) => _loadUserProfile());
+                      },
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Colors.blue,
+                        child: const Icon(
+                          Icons.edit,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(height: 10),
-            Text("Username: $username", style: TextStyle(fontSize: 18)),
-            SizedBox(height: 10),
-            Text("Email: $email", style: TextStyle(fontSize: 18)),
-            SizedBox(height: 10),
-            Text("Emergency Contact: $emergencyContact",
-                style: TextStyle(fontSize: 18)),
-            SizedBox(height: 20),
-            ElevatedButton(
+            const SizedBox(height: 30),
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    _buildProfileRow("First Name", username),
+                    _buildProfileRow("Last Name", lastname),
+                    _buildProfileRow("Email", email),
+                    _buildProfileRow("Phone", phone),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => UserProfileScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => UserProfileScreen()),
                 ).then((_) => _loadUserProfile());
               },
-              child: Text("Edit Profile"),
+              icon: const Icon(Icons.edit),
+              label: const Text("Edit Profile"),
+              style: ElevatedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8))),
             ),
           ],
         ),
@@ -172,6 +258,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 }
+
 
 class UserDonationsPage extends StatefulWidget {
   final String userId;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:payhere_mobilesdk_flutter/payhere_mobilesdk_flutter.dart';
 
 class DonatePage extends StatefulWidget {
   final String userId;
@@ -25,29 +26,66 @@ class _DonatePageState extends State<DonatePage> {
   final _amountController = TextEditingController();
   bool _isLoading = false;
 
-  Future<void> _submitDonation() async {
-    final amount = int.tryParse(_amountController.text.trim());
-    if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter a valid amount')),
-      );
-      return;
-    }
+  String? _firstName;
+  String? _lastName;
+  String? _email;
+  String? _phone;
 
-    setState(() {
-      _isLoading = true;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
 
+  Future<void> _fetchUserData() async {
     try {
-      // Add donation
+      final doc =
+          await FirebaseFirestore.instance.collection('users').doc(widget.userId).get();
+
+      if (doc.exists) {
+        setState(() {
+          _firstName = doc['username'] ?? '';
+          _lastName = doc['lastname'] ?? '';
+          _email = doc['email'] ?? '';
+          _phone = doc['phone'] ?? '';
+        });
+      }
+    } catch (e) {
+      print("Error fetching user data: $e");
+    }
+  }
+
+  Future<void> _startPayment(int amount) async {
+    var paymentObject = {
+      "sandbox": true, // PayHere sandbox mode
+      "merchant_id": "1231961", 
+      "merchant_secret": "MzE5OTQ5MDQ3MzEwOTIxNzEwNjcxODg2NjcyMDY3OTE0ODgxNzg1", 
+      "notify_url": "http://sample.com/notify",
+      "order_id": DateTime.now().millisecondsSinceEpoch.toString(),
+      "items": widget.campaignTitle,
+      "amount": amount.toString(),
+      "currency": "LKR",
+      "first_name": _firstName ?? "Donor",
+      "last_name": _lastName ?? "Anonymous",
+      "email": _email ?? "donor@example.com",
+      "phone": _phone ?? "0000000000",
+      "address": "Colombo",
+      "city": "Colombo",
+      "country": "Sri Lanka",
+    };
+
+    PayHere.startPayment(paymentObject, (paymentId) async {
+      print("Payment Success. Payment Id: $paymentId");
+
+      // Save donation after success
       await FirebaseFirestore.instance.collection('donations').add({
         'campaignId': widget.campaignId,
         'userId': widget.userId,
         'amount': amount,
         'timestamp': FieldValue.serverTimestamp(),
+        'paymentId': paymentId,
       });
 
-      // Update totalDonations in the campaign
       await FirebaseFirestore.instance
           .collection('campaigns')
           .doc(widget.campaignId)
@@ -58,15 +96,36 @@ class _DonatePageState extends State<DonatePage> {
       );
 
       Navigator.pop(context);
-    } catch (e) {
+    }, (error) {
+      print("Payment Failed. Error: $error");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text("Payment failed: $error")),
       );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+    }, () {
+      print("Payment Dismissed");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Payment cancelled")),
+      );
+    });
+  }
+
+  Future<void> _submitDonation() async {
+    final amount = int.tryParse(_amountController.text.trim());
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please enter a valid amount')),
+      );
+      return;
     }
+
+    if (_firstName == null || _lastName == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('User data not loaded yet')),
+      );
+      return;
+    }
+
+    _startPayment(amount);
   }
 
   @override
@@ -84,14 +143,16 @@ class _DonatePageState extends State<DonatePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.campaignTitle, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(widget.campaignTitle,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             SizedBox(height: 8),
             Text(widget.campaignDescription),
             SizedBox(height: 16),
             TextField(
               controller: _amountController,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: "Enter donation amount (£)"),
+              decoration:
+                  InputDecoration(labelText: "Enter donation amount (LKR)"),
             ),
             SizedBox(height: 20),
             ElevatedButton(

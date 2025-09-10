@@ -122,7 +122,7 @@ class _UserCampaignDetailsPageState extends State<UserCampaignDetailsPage> {
         'timestamp': FieldValue.serverTimestamp(),
         'imageUrl': '',
         'authorId': widget.userId,
-        'postColor': 'green',  // you can handle this on UI for color
+        'postColor': 'green', 
       });
 
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Campaign ended successfully')));
@@ -137,7 +137,7 @@ class _UserCampaignDetailsPageState extends State<UserCampaignDetailsPage> {
       await FirebaseFirestore.instance.collection('campaigns').doc(widget.campaignId).delete();
 
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Campaign deleted')));
-      Navigator.of(context).pop(); // Go back after deletion
+      Navigator.of(context).pop(); 
     } catch (e) {
       print('Error deleting campaign: $e');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete campaign')));
@@ -217,9 +217,9 @@ class _UserCampaignDetailsPageState extends State<UserCampaignDetailsPage> {
 
     Color? bgColor;
     if (postColor == 'green') {
-      bgColor = Colors.green[100];
+      bgColor = const Color.fromARGB(255, 0, 136, 5);
     } else if (postColor == 'yellow') {
-      bgColor = Colors.yellow[100];
+      bgColor = const Color.fromARGB(255, 196, 176, 0);
     }
 
     return Card(

@@ -13,6 +13,7 @@ class RegistrationScreen extends StatefulWidget {
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final _usernameController = TextEditingController();
+  final _lastnameController = TextEditingController(); 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -32,10 +33,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   /// Fetch email addresses signed in on the device
   Future<void> _fetchDeviceEmails() async {
     try {
-      // Fetch Google signed-in accounts
-      List<GoogleSignInAccount?> googleAccounts = await Future.wait([_googleSignIn.signInSilently()]);
+      List<GoogleSignInAccount?> googleAccounts =
+          await Future.wait([_googleSignIn.signInSilently()]);
 
-      // Filter out null accounts and extract emails
       setState(() {
         _deviceEmails = googleAccounts
             .where((account) => account != null)
@@ -49,19 +49,29 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
   }
 
-  /// Comprehensive email validation
+  /// Email validation 
   Future<bool> _validateEmail(String email) async {
     if (!EmailValidator.validate(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invalid email format')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Invalid email format')));
       return false;
     }
 
-    // Predefined list of known email providers
-    final validDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'protonmail.com', 'aol.com', 'zoho.com'];
+    final validDomains = [
+      'gmail.com',
+      'yahoo.com',
+      'hotmail.com',
+      'outlook.com',
+      'icloud.com',
+      'protonmail.com',
+      'aol.com',
+      'zoho.com'
+    ];
     String domain = email.split('@').last.toLowerCase();
 
     if (!validDomains.contains(domain)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please use a valid email provider')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Please use a valid email provider')));
       return false;
     }
 
@@ -69,19 +79,21 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       var signInMethods = await _auth.fetchSignInMethodsForEmail(email);
 
       if (signInMethods.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Email is already registered')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Email is already registered')));
         return false;
       }
 
       return true;
     } catch (e) {
       print("Email validation error: $e");
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error validating email')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error validating email')));
       return false;
     }
   }
 
-  /// Register the user and send verification email
+  /// Register the user
   Future<void> _register() async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isLoading = true);
@@ -90,38 +102,34 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       String password = _passwordController.text.trim();
 
       try {
-        // Validate email first
         bool isValidEmail = await _validateEmail(email);
         if (!isValidEmail) {
           setState(() => _isLoading = false);
           return;
         }
 
-        
-
-        // Register user with Firebase Authentication
-        UserCredential userCredential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+        UserCredential userCredential =
+            await _auth.createUserWithEmailAndPassword(
+                email: email, password: password);
         String uid = userCredential.user!.uid;
 
-        // Get FCM token
         String? fcmToken = await FirebaseMessaging.instance.getToken();
 
-        // Store user data in Firestore
+        
         await FirebaseFirestore.instance.collection('users').doc(uid).set({
           'username': _usernameController.text.trim(),
+          'lastname': _lastnameController.text.trim(),
           'email': email,
           'phone': _phoneController.text.trim(),
           'usertype': "Client",
+          'fcmToken': fcmToken,
         });
 
-        // Send email verification
-        await userCredential.user!.sendEmailVerification();
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Registration successful!')));
 
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Verification email sent! Please verify.')));
-
-        // Navigate to HomePage
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomePage(userId: uid)));
+        Navigator.pushReplacement(
+            context, MaterialPageRoute(builder: (context) => HomePage(userId: uid)));
 
       } on FirebaseAuthException catch (e) {
         String errorMessage = 'Registration failed';
@@ -134,10 +142,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           errorMessage = 'Password is too weak';
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(errorMessage)));
       } catch (e) {
         print('Unexpected registration error: $e');
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An unexpected error occurred')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('An unexpected error occurred')));
       } finally {
         setState(() => _isLoading = false);
       }
@@ -156,15 +166,23 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             children: [
               TextFormField(
                 controller: _usernameController,
-                decoration: InputDecoration(labelText: 'Username'),
-                validator: (value) => value!.isEmpty ? 'Enter a username' : null,
+                decoration: InputDecoration(labelText: 'First Name'),
+                validator: (value) => value!.isEmpty ? 'Enter your first name' : null,
+              ),
+              SizedBox(height: 10),
+              TextFormField(
+                controller: _lastnameController,
+                decoration: InputDecoration(labelText: 'Last Name'),
+                validator: (value) => value!.isEmpty ? 'Enter your last name' : null,
               ),
               SizedBox(height: 10),
               if (_deviceEmails.isNotEmpty)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Select from your device emails:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text('Select from your device emails:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                     DropdownButtonFormField<String>(
                       isExpanded: true,
                       hint: Text('Choose an email from this device'),
@@ -183,19 +201,23 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       },
                     ),
                     SizedBox(height: 10),
-                    Text('Or enter a new email:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text('Or enter a new email:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                   ],
                 ),
               TextFormField(
                 controller: _emailController,
-                decoration: InputDecoration(labelText: _deviceEmails.isEmpty ? 'Enter email' : 'Alternative email'),
+                decoration: InputDecoration(
+                    labelText: _deviceEmails.isEmpty ? 'Enter email' : 'Alternative email'),
                 validator: (value) => value!.isEmpty ? 'Enter an email' : null,
               ),
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
                 decoration: InputDecoration(labelText: 'Password'),
-                validator: (value) => value!.length < 6 ? 'Password must be at least 6 characters' : null,
+                validator: (value) =>
+                    value!.length < 6 ? 'Password must be at least 6 characters' : null,
               ),
               TextFormField(
                 controller: _phoneController,
@@ -204,7 +226,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 validator: (value) => value!.isEmpty ? 'Enter a phone number' : null,
               ),
               SizedBox(height: 20),
-              _isLoading ? Center(child: CircularProgressIndicator()) : ElevatedButton(onPressed: _register, child: Text('Register')),
+              _isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : ElevatedButton(onPressed: _register, child: Text('Register')),
             ],
           ),
         ),
@@ -215,6 +239,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   @override
   void dispose() {
     _usernameController.dispose();
+    _lastnameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _phoneController.dispose();

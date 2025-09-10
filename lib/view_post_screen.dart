@@ -141,13 +141,13 @@ class _CampaignDetailsPageState extends State<CampaignDetailsPage> {
                     Color? color;
                     switch (postColor) {
                       case 'green':
-                        color = Colors.green[100];
+                        color = const Color.fromARGB(255, 1, 151, 6);
                         break;
                       case 'yellow':
-                        color = Colors.yellow[100];
+                        color = const Color.fromARGB(255, 197, 177, 0);
                         break;
                       case 'red':
-                        color = Colors.red[100];
+                        color = const Color.fromARGB(255, 161, 0, 16);
                         break;
                       default:
                         color = null;
